@@ -1,0 +1,23 @@
+{
+  "name": "gta-chisinau",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch-map": "node tools/fetch-osm.mjs",
+    "fetch-dem": "node tools/fetch-dem.mjs",
+    "build-world": "node tools/build-world.mjs && node tools/carve-terrain.mjs",
+    "carve-terrain": "node tools/carve-terrain.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.9.0",
+    "vite": "^5.4.0"
+  }
+}

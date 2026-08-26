@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# Raw Overpass extract — large, and regenerable with `npm run fetch-map`.
+data-cache/
+.vercel
+.env*

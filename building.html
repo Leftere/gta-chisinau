@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Building workbench — Chișinău</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0d10'/%3E%3Crect x='8' y='7' width='16' height='19' rx='1.5' fill='%23d8d4c8'/%3E%3Crect x='11' y='10' width='3.5' height='4' fill='%232b3138'/%3E%3Crect x='17.5' y='10' width='3.5' height='4' fill='%232b3138'/%3E%3Crect x='11' y='16' width='3.5' height='4' fill='%232b3138'/%3E%3Crect x='17.5' y='16' width='3.5' height='4' fill='%232b3138'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --ink: #f2efe6;
+    --dim: rgba(242,239,230,0.58);
+    --line: rgba(255,255,255,0.10);
+    --panel: #14171b;
+    --accent: #8fd49a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d10; }
+  body {
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink); display: flex;
+  }
+
+  /* ------------------------------------------------------------- side panel */
+  #side {
+    width: 330px; flex: 0 0 330px; height: 100%; overflow-y: auto;
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 18px 18px 40px;
+  }
+  #side h1 { margin: 0 0 2px; font-size: 15px; font-weight: 620; letter-spacing: -.01em; }
+  #side .sub { color: var(--dim); font-size: 11px; letter-spacing: .12em;
+               text-transform: uppercase; margin-bottom: 18px; }
+
+  .grp { margin-bottom: 20px; }
+  .grp > label { display: block; color: var(--dim); font-size: 10px; letter-spacing: .16em;
+                 text-transform: uppercase; margin-bottom: 7px; }
+
+  input, select, button, textarea {
+    font-family: inherit; font-size: 12.5px; color: var(--ink);
+    background: rgba(255,255,255,.06); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px; width: 100%;
+  }
+  input:focus, select:focus { outline: 1px solid rgba(143,212,154,.6); }
+  button { cursor: pointer; background: rgba(255,255,255,.11); font-weight: 550; }
+  button:hover { background: rgba(255,255,255,.2); }
+  .row { display: flex; gap: 7px; }
+  .row > * { flex: 1; }
+  .row > .sm { flex: 0 0 62px; }
+
+  #idform { display: flex; gap: 7px; }
+  #idform input { font-family: ui-monospace, monospace; }
+  #idform button { flex: 0 0 54px; }
+
+  #err { color: #ff9b9b; font-size: 11.5px; margin-top: 7px; min-height: 1em; }
+  #progress, #saved, #built { font-size: 11px; color: var(--dim); margin-top: 6px; min-height: 1em; }
+  #siblings { font-size: 11px; color: var(--dim); margin-top: 5px; }
+  #siblings a { color: var(--ink); text-decoration: none; padding: 1px 6px; margin-left: 3px;
+                border: 1px solid var(--line); border-radius: 5px; }
+  #siblings a.on { background: rgba(143,212,154,.18); border-color: rgba(143,212,154,.4); }
+  #saved.ok, #built.ok { color: var(--accent); }
+  #saved.bad, #built.bad { color: #ff9b9b; }
+  .hintlet { text-transform: none; letter-spacing: 0; opacity: .65; font-size: 9.5px; }
+  button.primary { background: rgba(143,212,154,.20); border-color: rgba(143,212,154,.4); }
+  button.primary:hover { background: rgba(143,212,154,.32); }
+  textarea { resize: vertical; line-height: 1.45; }
+  /* A building that already carries an override should be obvious at a glance. */
+  #side.edited { box-shadow: inset 3px 0 0 var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td { padding: 2.5px 0; vertical-align: top; }
+  td:first-child { color: var(--dim); width: 92px; }
+  .ov td:last-child { color: var(--accent); }
+
+  pre {
+    margin: 0; padding: 9px 10px; border-radius: 7px; font-size: 10.5px; line-height: 1.55;
+    background: rgba(0,0,0,.45); border: 1px solid var(--line);
+    font-family: ui-monospace, monospace; white-space: pre-wrap; word-break: break-all;
+    color: #cfe3ff;
+  }
+
+  /* --------------------------------------------------------------- viewport */
+  #stage { flex: 1; position: relative; min-width: 0; }
+  canvas#view { display: block; width: 100%; height: 100%; }
+
+  /* On plates, not floating: the sky behind is near-white and the ground is
+     near-black, so pale text with a shadow is legible over exactly one of them. */
+  #hud, #hint {
+    position: absolute; left: 14px; pointer-events: none;
+    background: rgba(12,14,17,.62); backdrop-filter: blur(5px);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px;
+  }
+  #hud { top: 14px; font-size: 12px; line-height: 1.65; color: rgba(242,239,230,.8); }
+  #hud b { color: var(--ink); font-weight: 600; }
+  #hint { bottom: 14px; font-size: 11px; color: rgba(242,239,230,.72); }
+
+  #busy {
+    position: absolute; inset: 0; display: none; place-items: center;
+    background: rgba(11,13,16,.72); font-size: 13px; color: var(--dim);
+  }
+  #busy.on { display: grid; }
+</style>
+</head>
+<body>
+  <div id="side">
+    <h1>Building workbench</h1>
+    <div class="sub">Chișinău</div>
+
+    <div class="grp">
+      <label>OSM id</label>
+      <form id="idform" autocomplete="off">
+        <input id="id" placeholder="way/991056896" spellcheck="false" />
+        <button type="submit">Go</button>
+      </form>
+      <div id="err"></div>
+      <div class="row" style="margin-top:7px">
+        <button id="prev" type="button">‹ Prev</button>
+        <button id="rand" type="button">Random</button>
+        <button id="next" type="button">Next ›</button>
+      </div>
+      <div class="row" style="margin-top:7px">
+        <button id="todo" type="button">Next unedited, biggest first ›</button>
+      </div>
+      <div id="progress"></div>
+      <div id="siblings"></div>
+    </div>
+
+    <div class="grp">
+      <label>From the map</label>
+      <table id="info"></table>
+    </div>
+
+    <div class="grp">
+      <label>Try a different reading</label>
+      <select id="kind"></select>
+      <div class="row" style="margin-top:7px">
+        <input class="sm" id="levels" type="number" min="1" max="40" step="1" />
+        <select id="roof">
+          <option value="">roof: auto</option>
+          <option value="flat">flat</option>
+          <option value="gable">gable</option>
+        </select>
+        <input class="sm" id="colour" type="color" style="padding:2px;height:32px" />
+      </div>
+      <div class="row" style="margin-top:7px">
+        <button id="reset" type="button">Reset to map</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <label>Note <span class="hintlet">why this reading, and what is a guess</span></label>
+      <textarea id="note" rows="3" placeholder="Street photo shows pale stone panels, not the glass the tag implied."></textarea>
+    </div>
+
+    <div class="grp">
+      <label>Save to overrides.json</label>
+      <div class="row">
+        <button id="save" type="button" class="primary">Save building</button>
+        <button id="forget" type="button">Forget</button>
+      </div>
+      <div id="saved"></div>
+      <div class="row" style="margin-top:7px">
+        <button id="rebuild" type="button">Rebuild world</button>
+      </div>
+      <div id="built"></div>
+    </div>
+
+    <div class="grp">
+      <label>Snippet <span class="hintlet">if you would rather paste it yourself</span></label>
+      <pre id="snippet">—</pre>
+      <div class="row" style="margin-top:7px">
+        <button id="copy" type="button">Copy</button>
+        <a id="osm" target="_blank" rel="noreferrer"><button type="button" style="width:100%">View on OSM</button></a>
+      </div>
+    </div>
+
+    <div class="grp">
+      <label>Light</label>
+      <input id="hour" type="range" min="6" max="21" step="0.25" value="13" />
+      <div style="color:var(--dim);font-size:11px;margin-top:4px" id="hourlbl">13:00</div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="hint">drag to orbit · scroll to zoom · right-drag to pan · <b>R</b> auto-spin</div>
+    <div id="busy">building…</div>
+  </div>
+
+  <script type="module" src="/src/workbench.js"></script>
+</body>
+</html>

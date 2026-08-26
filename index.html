@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0b0d10" />
+<title>Chisinau — Drive</title>
+<meta name="description" content="A drivable simulation of central Chișinău, built from real OpenStreetMap data — 4,600 buildings, the actual street layout, the actual hills. Runs in a browser, works on phones." />
+
+<!-- Link preview. og:image must be absolute: Facebook does not resolve relative URLs. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Chișinău — Drive" />
+<meta property="og:url" content="https://gta-chisinau.vercel.app/" />
+<meta property="og:title" content="Chișinău — drive the real city centre" />
+<meta property="og:description" content="A drivable simulation of central Chișinău, built from real OpenStreetMap data — 4,600 buildings, the actual street layout, the actual hills. Runs in a browser, works on phones." />
+<meta property="og:image" content="https://gta-chisinau.vercel.app/og.jpg" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="A red Lada on Bulevardul Ștefan cel Mare, the Arcul de Triumf on the left." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Chișinău — drive the real city centre" />
+<meta name="twitter:description" content="A drivable simulation of central Chișinău, built from real OpenStreetMap data — 4,600 buildings, the actual street layout, the actual hills. Runs in a browser, works on phones." />
+<meta name="twitter:image" content="https://gta-chisinau.vercel.app/og.jpg" />
+<link rel="canonical" href="https://gta-chisinau.vercel.app/" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0d10'/%3E%3Crect x='5' y='13' width='22' height='7' rx='3' fill='%23b93030'/%3E%3Crect x='9' y='9' width='13' height='5' rx='2.5' fill='%23d8d4c8'/%3E%3Ccircle cx='10' cy='21' r='2.6' fill='%23e8e6e0'/%3E%3Ccircle cx='22' cy='21' r='2.6' fill='%23e8e6e0'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --ink: #f2efe6;
+    --dim: rgba(242,239,230,0.62);
+    --panel: rgba(12,14,17,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #0b0d10;
+    /* A game is not a document: no rubber-banding, no pinch zoom, no
+       double-tap zoom, no text selection when a thumb rests on the HUD. */
+    overscroll-behavior: none; touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
+  body { font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  /* dvh tracks the mobile browser's collapsing chrome; vh does not. */
+  canvas#view { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
+
+  /* ---------------------------------------------------------------- loading */
+  #loader {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; background: #0b0d10; transition: opacity .6s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #loader h1 {
+    margin: 0; font-size: clamp(28px, 6vw, 54px); font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  #loader .sub { color: var(--dim); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
+  #bar { width: min(360px, 70vw); height: 3px; background: rgba(255,255,255,.12); border-radius: 2px; overflow: hidden; }
+  #bar i { display: block; height: 100%; width: 0%; background: var(--ink); transition: width .3s ease; }
+  #stage { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; min-height: 1.2em; }
+
+  /* ------------------------------------------------------------------- hud */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+
+  #speedo {
+    position: absolute; right: 26px; bottom: 24px; text-align: right;
+    text-shadow: 0 2px 14px rgba(0,0,0,.8);
+  }
+  #speedo .n { font-size: 62px; font-weight: 650; line-height: .92; font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
+  #speedo .u { font-size: 12px; letter-spacing: .22em; color: var(--dim); text-transform: uppercase; }
+
+  #street {
+    position: absolute; left: 26px; bottom: 26px; max-width: 44vw;
+    font-size: 19px; font-weight: 550; letter-spacing: -0.01em;
+    text-shadow: 0 2px 14px rgba(0,0,0,.85);
+    opacity: 0; transition: opacity .45s ease;
+  }
+  #street.on { opacity: 1; }
+  #street small { display: block; font-size: 10px; letter-spacing: .2em; color: var(--dim);
+                  text-transform: uppercase; margin-bottom: 3px; font-weight: 500; }
+
+  #map {
+    position: absolute; left: 22px; top: 22px;
+    width: 190px; height: 190px; border-radius: 50%;
+    background: var(--panel); backdrop-filter: blur(6px);
+    border: 1.5px solid rgba(255,255,255,.16);
+    box-shadow: 0 10px 34px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  #map canvas { width: 100%; height: 100%; display: block; }
+  #map.off { display: none; }
+
+  #stats {
+    position: absolute; right: 22px; top: 20px; text-align: right;
+    font-size: 11px; line-height: 1.7; color: var(--dim);
+    font-variant-numeric: tabular-nums; letter-spacing: .04em;
+  }
+  #stats b { color: var(--ink); font-weight: 550; }
+
+  #help {
+    position: absolute; left: 22px; bottom: 90px;
+    background: var(--panel); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+    padding: 14px 16px; font-size: 12px; line-height: 1.85; letter-spacing: .02em;
+    max-width: 270px;
+  }
+  #help.off { display: none; }
+  #help kbd {
+    display: inline-block; min-width: 19px; text-align: center;
+    padding: 1px 5px; margin-right: 7px; border-radius: 5px;
+    background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.14);
+    font-family: ui-monospace, monospace; font-size: 11px;
+  }
+  #help .t { color: var(--dim); text-transform: uppercase; letter-spacing: .18em;
+             font-size: 10px; margin-bottom: 8px; }
+
+  #pick {
+    position: absolute; right: 22px; bottom: 120px; width: 306px;
+    background: var(--panel); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
+    padding: 14px 16px; font-size: 12px; line-height: 1.6;
+    pointer-events: auto; display: none;
+  }
+  #pick.on { display: block; }
+  #pick h3 { margin: 0 0 2px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  #pick .id { font-family: ui-monospace, monospace; font-size: 11px; color: var(--dim); margin-bottom: 10px; }
+  #pick table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  #pick td { padding: 1px 0; vertical-align: top; }
+  #pick td:first-child { color: var(--dim); width: 74px; }
+  #pick .ov { color: #7fd48a; }
+  #pick pre {
+    margin: 0 0 10px; padding: 8px 9px; border-radius: 7px;
+    background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.08);
+    font-family: ui-monospace, monospace; font-size: 10.5px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all; color: #cfe3ff;
+  }
+  #pick .row { display: flex; gap: 8px; }
+  #pick button, #pick a {
+    flex: 1; text-align: center; cursor: pointer; text-decoration: none;
+    padding: 6px 8px; border-radius: 7px; font-size: 11px; font-weight: 550;
+    background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.15);
+    color: var(--ink); font-family: inherit;
+  }
+  #pick button:hover, #pick a:hover { background: rgba(255,255,255,.22); }
+  #pick .hint { color: var(--dim); font-size: 10.5px; margin-top: 9px; }
+
+  /* ------------------------------------------------------ touch controls */
+  /* Hidden until main.js decides this is a touch device, so a desktop that
+     merely reports maxTouchPoints never gets a thumb pad over the city. */
+  #touch { position: absolute; inset: 0; display: none; z-index: 20; }
+  #touch.on { display: block; }
+  .tc-mini.off { opacity: .45; }
+  #touch * { touch-action: none; }
+
+  .tc-steer, .tc-btn, .tc-mini {
+    pointer-events: auto;
+    background: rgba(12,14,17,.46); backdrop-filter: blur(7px);
+    border: 1.5px solid rgba(255,255,255,.20);
+    color: var(--ink); font-family: inherit;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  /* steering: an absolute strip, so it self-centres and needs no looking at */
+  .tc-steer {
+    position: absolute; left: calc(16px + env(safe-area-inset-left));
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: min(40vw, 330px); height: 88px; border-radius: 44px;
+  }
+  .tc-track {
+    position: absolute; left: 14px; right: 14px; top: 50%; height: 5px;
+    transform: translateY(-50%); border-radius: 3px; background: rgba(255,255,255,.13);
+  }
+  .tc-notch {
+    position: absolute; left: 50%; top: 50%; width: 2px; height: 20px;
+    transform: translate(-50%, -50%); background: rgba(255,255,255,.32);
+  }
+  /* `left` is a percentage of the track; a transform percentage would be a
+     percentage of the knob itself, which is a fourteenth of the travel. */
+  .tc-knob {
+    position: absolute; left: 50%; top: 50%; width: 62px; height: 62px;
+    border-radius: 50%;
+    background: rgba(242,239,230,.90); box-shadow: 0 4px 16px rgba(0,0,0,.55);
+    transform: translate(-50%, -50%);
+    transition: left .05s linear, background .12s ease;
+  }
+  .tc-knob.on { background: #fff; }
+  .tc-label {
+    position: absolute; left: 14px; top: 6px;
+    font-size: 8.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--dim);
+  }
+
+  /* pedals */
+  .tc-pedals {
+    position: absolute; right: calc(16px + env(safe-area-inset-right));
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    display: flex; align-items: flex-end; gap: 14px;
+  }
+  .tc-btn {
+    display: grid; place-items: center; border-radius: 50%;
+    font-size: 12px; font-weight: 650; letter-spacing: .10em; line-height: 1.15;
+    text-align: center; padding: 0;
+  }
+  .tc-btn.on { background: rgba(242,239,230,.86); color: #10131a; border-color: #fff; }
+  .tc-gas { width: 108px; height: 108px; font-size: 15px; }
+  .tc-brake { width: 88px; height: 88px; }
+  .tc-hand {
+    position: absolute; right: calc(16px + env(safe-area-inset-right));
+    bottom: calc(140px + env(safe-area-inset-bottom));
+    width: 74px; height: 74px; font-size: 9.5px; letter-spacing: .08em;
+  }
+
+  /* utilities */
+  .tc-utils {
+    position: absolute; right: calc(16px + env(safe-area-inset-right));
+    top: calc(14px + env(safe-area-inset-top));
+    display: flex; gap: 8px;
+  }
+  .tc-mini {
+    padding: 8px 11px; border-radius: 9px; font-size: 10px;
+    font-weight: 600; letter-spacing: .12em;
+  }
+  .tc-mini:active { background: rgba(242,239,230,.86); color: #10131a; }
+
+  /* --------------------------------------------- HUD, rearranged for thumbs */
+  /* The desktop HUD puts the speedo and street name in the bottom corners,
+     which is exactly where the pedals and the steering strip now live. */
+  body.touch #help { display: none; }
+  body.touch #map { left: calc(12px + env(safe-area-inset-left)); top: calc(12px + env(safe-area-inset-top));
+                    width: 108px; height: 108px; border-width: 1px; }
+  body.touch #stats { display: none; }
+  body.touch #street {
+    left: 50%; transform: translateX(-50%); bottom: auto;
+    top: calc(12px + env(safe-area-inset-top)); max-width: 46vw;
+    text-align: center; font-size: 15px;
+  }
+  body.touch #street small { font-size: 8.5px; letter-spacing: .16em; }
+  body.touch #speedo {
+    right: auto; left: 50%; transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom)); text-align: center;
+  }
+  body.touch #speedo .n { font-size: 40px; }
+  body.touch #speedo .u { font-size: 9px; }
+  body.touch #pick {
+    right: 50%; transform: translateX(50%);
+    bottom: auto; top: calc(52px + env(safe-area-inset-top));
+    width: min(320px, 84vw); max-height: 58vh; overflow-y: auto;
+    /* html has touch-action:none to kill page scroll; the inspector is the one
+       thing that genuinely does need to scroll under a finger. */
+    touch-action: pan-y;
+  }
+
+  /* ------------------------------------------------------------- rotate me */
+  /* Driving in portrait means a letterbox the width of the car. */
+  #rotate {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    background: rgba(11,13,16,.94); text-align: center; padding: 30px;
+  }
+  #rotate.on { display: flex; }
+  #rotate .ico { font-size: 44px; line-height: 1; }
+  #rotate h2 { margin: 0; font-size: 20px; font-weight: 600; }
+  #rotate p { margin: 0; color: var(--dim); font-size: 13px; max-width: 280px; line-height: 1.5; }
+  #rotate button {
+    margin-top: 6px; padding: 9px 18px; border-radius: 9px; cursor: pointer;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18);
+    color: var(--ink); font-family: inherit; font-size: 12px; font-weight: 550;
+  }
+
+  /* Short landscape phones: shrink everything that competes for the height. */
+  @media (max-height: 430px) {
+    body.touch #map { width: 88px; height: 88px; }
+    body.touch #speedo .n { font-size: 32px; }
+    .tc-steer { height: 74px; border-radius: 37px; }
+    .tc-knob { width: 54px; height: 54px; }
+    .tc-gas { width: 92px; height: 92px; }
+    .tc-brake { width: 76px; height: 76px; }
+    .tc-hand { width: 62px; height: 62px; bottom: calc(120px + env(safe-area-inset-bottom)); }
+  }
+
+  /* ------------------------------------------------------------ credits */
+  /* OSM data is ODbL: a produced work has to carry the attribution somewhere a
+     viewer would reasonably look, so this is persistent rather than tucked
+     behind an info button, and it is repeated on the loading screen. */
+  /* Sat on a plate rather than floating: the sky is near-white and the road is
+     near-black, and pale text with a shadow is only legible over one of them.
+     A credit that cannot be read is not a credit. */
+  #credit {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: 8px; max-width: 46vw; text-align: center;
+    font-size: 10px; line-height: 1.5; letter-spacing: .01em;
+    color: rgba(242,239,230,.78); pointer-events: auto;
+    background: rgba(12,14,17,.5); backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,.09);
+    padding: 3px 10px; border-radius: 8px;
+  }
+  #credit a { color: inherit; text-decoration: none; border-bottom: 1px solid rgba(242,239,230,.3); }
+  #credit a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+  /* On a phone the bottom edge is all thumbs, so it sits under the minimap. */
+  body.touch #credit {
+    left: calc(12px + env(safe-area-inset-left)); transform: none;
+    bottom: auto; top: calc(126px + env(safe-area-inset-top));
+    max-width: 38vw; text-align: left; font-size: 9px;
+  }
+  @media (max-height: 430px) {
+    body.touch #credit { top: calc(106px + env(safe-area-inset-top)); }
+  }
+  #loader .credit { font-size: 11px; color: rgba(242,239,230,.42); margin-top: 6px; }
+  #loader .credit a { color: inherit; }
+
+  #flash {
+    position: absolute; inset: 0; background: #fff; opacity: 0;
+    transition: opacity .12s ease-out;
+  }
+  #err {
+    position: fixed; inset: 0; z-index: 99; display: none;
+    place-items: center; text-align: center; padding: 40px; background: #0b0d10;
+  }
+  #err code { display:block; margin-top:14px; font-size:12px; color:#ff9b9b; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <div id="hud">
+    <div id="map"><canvas id="mapcv" width="380" height="380"></canvas></div>
+    <div id="stats"></div>
+    <div id="street"><small>Now on</small><span id="streetname"></span></div>
+    <div id="speedo"><div class="n" id="kmh">0</div><div class="u">km / h</div></div>
+    <div id="help">
+      <div class="t">Controls</div>
+      <div><kbd>W</kbd><kbd>S</kbd> throttle / brake</div>
+      <div><kbd>A</kbd><kbd>D</kbd> steer</div>
+      <div><kbd>␣</kbd> handbrake</div>
+      <div><kbd>C</kbd> camera</div>
+      <div><kbd>[</kbd><kbd>]</kbd> time of day</div>
+      <div><kbd>Q</kbd> quality</div>
+      <div><kbd>R</kbd> respawn</div>
+      <div><kbd>V</kbd> <span id="sndState">sound on</span></div>
+      <div><kbd>M</kbd> map &nbsp; <kbd>H</kbd> hide this</div>
+      <div><kbd>click</kbd> inspect a building</div>
+    </div>
+    <div id="pick">
+      <h3 id="pkName">—</h3>
+      <div class="id" id="pkId"></div>
+      <table id="pkTable"></table>
+      <pre id="pkSnippet"></pre>
+      <div class="row">
+        <button id="pkCopy">Copy override</button>
+        <a id="pkOsm" target="_blank" rel="noreferrer">View on OSM</a>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <a id="pkBench" target="_blank" rel="noreferrer">Open in workbench &nearr;</a>
+      </div>
+      <div class="hint">Paste into <b>overrides.json</b>, then <b>npm run build-world</b> and reload.</div>
+    </div>
+    <div id="credit">
+      Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer noopener">OpenStreetMap</a> contributors
+      &middot; elevation <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer noopener">Terrain Tiles</a>
+    </div>
+    <div id="flash"></div>
+  </div>
+
+  <div id="loader">
+    <h1>Chi&#537;in&#259;u</h1>
+    <div class="sub">Centru &middot; 2.6 &times; 2.2 km</div>
+    <div id="bar"><i></i></div>
+    <div id="stage">starting&hellip;</div>
+    <div class="credit">Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer noopener">OpenStreetMap</a> contributors</div>
+  </div>
+
+  <div id="rotate">
+    <div class="ico">&#128241;</div>
+    <h2>Turn your phone sideways</h2>
+    <p>The city is a lot easier to drive in landscape &mdash; and the controls need the width.</p>
+    <button id="rotateAnyway">Play in portrait anyway</button>
+  </div>
+
+  <div id="err"><div><h2>WebGL failed to start</h2><code id="errmsg"></code></div></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+{
+  "_readme": [
+    "Per-building corrections, keyed by OSM id. These beat anything inferred from",
+    "the footprint and survive re-downloading the map. Click a building in game to",
+    "get its id and a paste-ready snippet.",
+    "Fields: levels, height (m), kind (facade family), colour (hex), roof (flat|gable),",
+    "name, drop (true removes the building).",
+    "Families: panel historic house plain commercial glass civic industrial small church stone stoneclad modernist pavilion",
+    "Prefer fixing genuinely-wrong facts upstream in OpenStreetMap; keep game-specific",
+    "choices here. Anything marked ESTIMATE below is a judgement call, not sourced data."
+  ],
+  "relation/20340431": {
+    "model": "arch",
+    "height": 13,
+    "width": 11.2,
+    "depth": 7,
+    "colour": "#d9cfb6",
+    "_note": "Arcul de Triumf (1840). Hand-modelled - see src/world/landmarks.js. Four corner piers faced with paired Corinthian columns, open on both axes. The lower passage is TRABEATED (flat-topped, spanned by a deep entablature); the semicircular arch is the UPPER tier, a recessed vault holding the bell. Both OSM outer rings agree on an 11.2m frontage; depth 7m and height 13m are ESTIMATES. Height deliberately left at 13m despite reference photos looking taller - they are shot from below and keystone the top inward."
+  },
+  "way/25764333": {
+    "model": "cathedral",
+    "angle": 45,
+    "width": 39.5,
+    "depth": 39.5,
+    "height": 34,
+    "colour": "#ece7d8",
+    "_note": "Catedrala Mitropolitana \"Nasterea Domnului\" (1836). Hand-modelled - see src/world/landmarks.js. Neoclassical Greek cross: a regular octagon body (a square with chamfered corners, 38.3m across flats) with a pedimented six-column portico on each cardinal face, carrying a tall drum of round-headed windows and a ribbed lead-grey dome with a white lantern and a gold cross. NOTHING about the OSM tags is wrong - building=cathedral and height=10 are both correct - which is why this was left alone for so long; height=10 is the main CORNICE, and the model keeps it there. The dome is 24m of elevation and none of the plan, so no extrusion could ever produce it. height 34m is an estimate of the cross tip from the reference photograph. angle 45 is STATED, not measured, and it comes from the ENSEMBLE: the footprint is 38.29 x 38.35m so minAreaRect is picking between the octagon's cardinal and diagonal faces on a 6cm tie-break and has no real answer. What settles it is that the cathedral, the Clopotnita and Arcul de Triumf are COLLINEAR - 135 deg cathedral to bell tower, 134 deg on to the arch - and the main portico faces down that axis, at the bell tower. Do NOT reach for altar-east here: it gave angle 0 for one round and put the porticos on the corners. A 19th-century planned composition is set out on its own axis and Chisinau's grid runs 45 deg off the compass."
+  },
+  "way/549387560": {
+    "model": "belltower",
+    "width": 11.3,
+    "depth": 11.3,
+    "height": 28,
+    "colour": "#ece7d8",
+    "_note": "Clopotnita, the Nativity Cathedral bell tower (1836, demolished 1962, rebuilt 1997). Hand-modelled - see src/world/landmarks.js. Three square stages telescoping inwards, each with its own projecting cornice, under a ribbed copper cupola with a cross. The middle stage is the open one where the bells hang; the bottom stage is closed, with a tall round-headed window recessed over the porch. Was kind=church, which fixed the domestic windows and the gable but still left a 20m flat-topped box - no extrusion of a footprint can produce a set-back. The footprint is an 11.3m square at 45 degrees to the grid with a porch projecting from each face, so minAreaRect finds the real faces and the model needs no angle of its own; width/depth here are the CORE square, with the porches added by the model. Height 28m OVERRIDES OSM's height=20 m tag, which cannot be reconciled with the footprint: 20m over an 11.3m square is a 1.8:1 block, and the reference photograph reads at least 2.5:1 even though it is shot from below (which foreshortens the upper stages and if anything UNDERstates the ratio). 28m is 2.5 x the measured frontage - an estimate from the elevation, the same class of guess as the arch's 13m."
+  },
+  "way/762704772": {
+    "kind": "modernist",
+    "colour": "#e0e0d9",
+    "entrance": {
+      "doors": 3,
+      "doorWidth": 2.1,
+      "doorHeight": 2.9,
+      "spacing": 4.1,
+      "stairWidth": 28,
+      "steps": 9,
+      "rise": 0.16,
+      "tread": 0.55,
+      "landing": 3
+    },
+    "_note": "Casa Guvernului. First read as 'plain' (a Soviet panel block), then 'civic' - but civic draws punched windows with sills and lintels, and a street-level photo shows the real thing is post-war modernist: continuous full-height vertical piers with recessed dark glazing between them, pale precast concrete. Storeys and height still come from OSM (building:levels=6, height=20 m); the photo suggests more storeys than that but the base is hidden behind trees so the tag is left alone."
+  },
+  "way/991056896": {
+    "kind": "stoneclad",
+    "colour": "#d0cbbf",
+    "parts": [
+      {
+        "levels": 6,
+        "keep": [
+          [
+            [
+              256.9,
+              -3.7
+            ],
+            [
+              158.9,
+              96.3
+            ]
+          ]
+        ],
+        "kind": "tiled",
+        "colour": "#ded5c4",
+        "reveal": 0.22,
+        "entrance": {
+          "doors": 2,
+          "doorWidth": 1.5,
+          "doorHeight": 2.6,
+          "spacing": 1.9,
+          "stairWidth": 7.0,
+          "steps": 3,
+          "rise": 0.15,
+          "tread": 0.34,
+          "landing": 1.4,
+          "portal": {
+            "width": 8.2,
+            "height": 6.4,
+            "thickness": 1.05,
+            "depth": 0.42,
+            "doorTop": 3.1
+          },
+          "facing": [
+            -0.7,
+            0.714
+          ]
+        }
+      },
+      {
+        "levels": 2,
+        "keep": [
+          [
+            [
+              158.9,
+              96.3
+            ],
+            [
+              256.9,
+              -3.7
+            ]
+          ],
+          [
+            [
+              172.0,
+              61.5
+            ],
+            [
+              272.0,
+              159.6
+            ]
+          ]
+        ]
+      },
+      {
+        "levels": 4,
+        "keep": [
+          [
+            [
+              272.0,
+              159.6
+            ],
+            [
+              172.0,
+              61.5
+            ]
+          ]
+        ]
+      }
+    ],
+    "_note": "Gemeni (OSM old_name: Detsky Mir). Street photo: a six-storey tower at the north-west end of the frontage with the GEMENI sign, and a long two-storey colonnaded shop wing beside it carrying DeFacto. OSM says building:levels=6;2;4 but a semicolon list cannot say which part is which, so the whole ring was being extruded to 6 as one flat slab. The tower and the two-storey wing are what the photo shows; the four-storey rear block is inferred from the tag alone, not seen. Facade is pale stone panel cladding with small punched windows, not the curtain wall shop=mall implied."
+  },
+  "way/67803028": {
+    "kind": "pavilion",
+    "colour": "#d8d3c4",
+    "_note": "The McDonald's pavilion behind Gemeni (Bd. Stefan cel Mare 134/1), set about 40 m back from the boulevard behind its own forecourt. Inference made it 'historic' - the rule is that low-rise near the centre is surviving pre-war fabric, which is right often enough but wrong here - so it got tall multi-pane sash windows with sills and lintels. A street-level photo shows the opposite: a plain rendered concrete box, glazed shopfront at street level and a single wide, deeply recessed glazed band above between heavy piers, no ornament anywhere. New 'pavilion' family. Storeys and height are left to OSM (building:levels=2)."
+  }
+}
